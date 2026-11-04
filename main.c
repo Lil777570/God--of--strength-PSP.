@@ -3,63 +3,88 @@
 #include <pspctrl.h>
 #include <pspdisplay.h>
 #include <stdio.h>
-#include <stdlib.h>
 
-PSP_MODULE_INFO("GodOfStrength", 0, 1, 0);
-PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USERMODE | THREAD_ATTR_VFPU);
+PSP_MODULE_INFO("GodOfStrength", 0, 1, 1);
+PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
-int exit_callback(int arg1, int arg2, void *common){sceKernelExitGame();return 0;}
-int CallbackThread(SceSize args, void *argp){int cbid=sceKernelCreateCallback("Exit Callback",exit_callback,NULL);sceKernelRegisterExitCallback(cbid);sceKernelSleepThreadCB();return 0;}
-int SetupCallbacks(void){int thid=sceKernelCreateThread("update_thread",CallbackThread,0x11,0xFA0,0,0);if(thid>=0)sceKernelStartThread(thid,0,0);return thid;}
-
-int main(){
-    SetupCallbacks();
+int main_thread(SceSize args, void *argp) {
     pspDebugScreenInit();
     SceCtrlData pad;
-    int gameState=0, logoTimer=0, playerX=10, playerY=15, health=100, temple=1;
-    while(1){
-        sceCtrlReadBufferPositive(&pad,1);
-        if(gameState==0){
-            pspDebugScreenClear();
-            pspDebugScreenSetXY(10,10); pspDebugScreenKprintf("LIL STAR ENTERTAINMENT");
-            pspDebugScreenSetXY(8,12); pspDebugScreenKprintf("PRESENTS");
-            pspDebugScreenSetXY(5,15); pspDebugScreenKprintf("GOD OF STRENGTH - ISMAIL SAGA");
-            logoTimer++; if(logoTimer>200) gameState=1;
-            sceDisplayWaitVblankStart(); sceKernelDelayThread(50000);
-        } else if(gameState==1){
-            pspDebugScreenClear();
-            pspDebugScreenSetXY(5,5); pspDebugScreenKprintf("A Lil Star Entertainment Presents");
-            pspDebugScreenSetXY(3,7); pspDebugScreenKprintf("GOD OF STRENGTH - Starring ISMAIL");
-            pspDebugScreenSetXY(3,9); pspDebugScreenKprintf("One Warrior. Five Temples. One Final Battle.");
-            pspDebugScreenSetXY(3,12); pspDebugScreenKprintf("Press X to Start - Easy/Hard/Very Hard");
-            pspDebugScreenSetXY(3,14); pspDebugScreenKprintf("D-PAD move, SQUARE attack");
-            if(pad.Buttons & PSP_CTRL_CROSS){gameState=2; sceKernelDelayThread(300000);}
-            sceDisplayWaitVblankStart();
-        } else {
-            pspDebugScreenClear();
-            char buf[100];
-            sprintf(buf,"TEMPLE %d/5 - HEALTH: %d%% - ISMAIL",temple,health);
-            pspDebugScreenSetXY(1,1); pspDebugScreenKprintf(buf);
-            pspDebugScreenSetXY(1,3); pspDebugScreenKprintf("----------------------------------------");
-            pspDebugScreenSetXY(playerX,playerY); pspDebugScreenKprintf("I");
-            pspDebugScreenSetXY(30,15); pspDebugScreenKprintf("B");
-            pspDebugScreenSetXY(2,22); pspDebugScreenKprintf("Ismail(I) vs BABBAKA(B) - ARROWS+SQUARE, START=Menu");
-            if(pad.Buttons & PSP_CTRL_LEFT && playerX>0) playerX--;
-            if(pad.Buttons & PSP_CTRL_RIGHT && playerX<39) playerX++;
-            if(pad.Buttons & PSP_CTRL_UP && playerY>5) playerY--;
-            if(pad.Buttons & PSP_CTRL_DOWN && playerY<20) playerY++;
-            if(pad.Buttons & PSP_CTRL_SQUARE && playerX>25){
-                pspDebugScreenSetXY(10,12); pspDebugScreenKprintf("ISMAIL SMASH! BABBAKA HIT!!");
-                health-=5;
-                if(health<=0){
-                    pspDebugScreenClear();
-                    pspDebugScreenSetXY(10,12); pspDebugScreenKprintf("YOU DEFEAT BABBAKA! GOD OF STRENGTH!");
-                    sceDisplayWaitVblankStart(); sceKernelDelayThread(2000000);
-                    temple++; if(temple>5) temple=1; health=100;
+    int state = 0;
+    int timer = 0;
+    int px = 10;
+    int py = 15;
+    int hp = 100;
+    int temple = 1;
+    
+    while(1) {
+        sceCtrlReadBufferPositive(&pad, 1);
+        pspDebugScreenClear();
+        
+        if(state==0) {
+            pspDebugScreenSetXY(10,10);
+            pspDebugScreenKprintf("LIL STAR ENTERTAINMENT PRESENTS");
+            pspDebugScreenSetXY(5,13);
+            pspDebugScreenKprintf("GOD OF STRENGTH - ISMAIL SAGA");
+            pspDebugScreenSetXY(8,15);
+            pspDebugScreenKprintf("LOADING... %d", timer);
+            timer++;
+            if(timer>150) state=1;
+        }
+        else if(state==1) {
+            pspDebugScreenSetXY(5,5);
+            pspDebugScreenKprintf("GOD OF STRENGTH - Starring ISMAIL");
+            pspDebugScreenSetXY(3,7);
+            pspDebugScreenKprintf("One Warrior. Five Temples.");
+            pspDebugScreenSetXY(3,9);
+            pspDebugScreenKprintf("Press X to Start");
+            pspDebugScreenSetXY(3,11);
+            pspDebugScreenKprintf("Easy / Hard / Very Hard");
+            if(pad.Buttons & PSP_CTRL_CROSS) {
+                state=2;
+                sceKernelDelayThread(300*1000);
+            }
+        }
+        else {
+            char buf[80];
+            sprintf(buf,"TEMPLE %d/5  HP:%d  ISMAIL vs BABBAKA",temple,hp);
+            pspDebugScreenSetXY(0,0);
+            pspDebugScreenKprintf(buf);
+            pspDebugScreenSetXY(px,py);
+            pspDebugScreenKprintf("I");
+            pspDebugScreenSetXY(30,15);
+            pspDebugScreenKprintf("B");
+            pspDebugScreenSetXY(1,21);
+            pspDebugScreenKprintf("D-PAD MOVE  SQUARE=ATTACK  START=MENU");
+            if(pad.Buttons & PSP_CTRL_LEFT) px--;
+            if(pad.Buttons & PSP_CTRL_RIGHT) px++;
+            if(pad.Buttons & PSP_CTRL_UP) py--;
+            if(pad.Buttons & PSP_CTRL_DOWN) py++;
+            if(px<0) px=0; if(px>60) px=60;
+            if(py<2) py=2; if(py>20) py=20;
+            if((pad.Buttons & PSP_CTRL_SQUARE) && px>25) {
+                pspDebugScreenSetXY(15,12);
+                pspDebugScreenKprintf("SMASH! HIT BABBAKA!");
+                hp--;
+                if(hp<=0) {
+                    pspDebugScreenSetXY(10,10);
+                    pspDebugScreenKprintf("YOU WIN! GOD OF STRENGTH!");
+                    sceKernelDelayThread(2000*1000);
+                    temple++; if(temple>5) temple=1;
+                    hp=100;
                 }
             }
-            if(pad.Buttons & PSP_CTRL_START) gameState=1;
-            sceKernelDelayThread(100000); sceDisplayWaitVblankStart();
+            if(pad.Buttons & PSP_CTRL_START) state=1;
         }
-    } return 0;
+        sceDisplayWaitVblankStart();
+        sceKernelDelayThread(80*1000);
+    }
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    SceUID thid = sceKernelCreateThread("main_thread", main_thread, 20, 0x10000, 0, NULL);
+    if(thid >= 0) sceKernelStartThread(thid, 0, NULL);
+    sceKernelExitDeleteThread(0);
+    return 0;
 }
